@@ -104,3 +104,4 @@ Ainv%*%A
 
 # Multiply A by its inverse
 A%*%Ainv
+
