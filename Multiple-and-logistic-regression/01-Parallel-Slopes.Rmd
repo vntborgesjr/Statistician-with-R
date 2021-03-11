@@ -4,7 +4,16 @@ output: html_notebook
 ---
 
 ```{r}
-
+library(tidyverse)
+mpg <- ggplot2::mpg
+mpg_manual <- mpg %>% 
+  filter(trans %in% c('manual(m5)', 'manual(m6)'))
+library(openintro)
+data(mariokart)
+mario_kart <- mariokart %>% 
+  filter(total_pr < 100)
+rm(mariokart)
+colnames(mario_kart) <- c("ID", "duration", "nBids", "cond", "startPr", "shipPr", "totalPr", "shipSp", "sellerRate", "stockPhoto", "wheels", "title")
 ```
 
 ## **What if you have two groups?**
@@ -17,13 +26,32 @@ Hi, my name is Ben Baumer. I'm an assistant professor of statistical and data sc
 
 OK, let's consider a situation in which simple linear regression might not be sophisticated enough to suit our needs. This scatterplot shows the relationship between highway fuel economy and engine size for 77 configurations of manual transmission cars popular from 1999 to 2008. It appears as though there is a negative relationship between engine size and fuel economy---which should make sense: bigger engines tend to go in bigger cars, which tend to be heavier, and which tend to get worse mileage. We could certainly fit a linear regression line through these points, but that would only tell us part of the story.
 
+```{r}
+ggplot(data = mpg_manual, aes(x = displ, y = hwy)) +
+  geom_point()
+```
+
 **3. Fuel efficiency over time**
 
 The truth is that while these cars were popular in each of the ten years between 1999 and 2008, the observations we have are only from 1999 or 2008. Did fuel economy improve over time? These side-by-side boxplots suggest that it might have, but does that represent a feat of engineering? Or merely a change in consumer taste? How do we know that the increase in fuel economy was not just due to the cars in 2008 generally having smaller engines---which we've already observed to be associated with greater fuel economy?
 
+```{r}
+ggplot(data = mpg_manual, aes(x = factor(year), y = hwy)) +
+  geom_boxplot()
+```
+
 **4. A parallel slopes model**
 
 What we really want is a model that will assess the effects of engine size and year simultaneously. That is, we want to understand the effect of time on fuel economy, after controlling for engine size. Here we see a visual depiction of a parallel slopes model. These models occur when one of the explanatory variables is numeric, and the other is categorical. In this case, the year variables has two levels, and the model accordingly consists of two parallel lines.
+
+```{r, echo = FALSE}
+mod <- lm(hwy ~ displ + year, data = mpg_manual)
+data_space <- ggplot(data = mpg_manual, aes(x = displ, y = hwy, color = factor(year))) + 
+  geom_point()
+data_space + 
+  geom_line(data = augment(mod), aes(y = .fitted, color = factor(year)))
+
+```
 
 **5. Adding a new variable**
 
@@ -32,6 +60,10 @@ Multiple regression allows us to build such models by simply adding another vari
 **6. Adding a new variable in R**
 
 As you might suspect, telling R about the second variable in our regression model is just as easy. We simply add another term to the right-hand-side of the formula that we pass to the lm() function. Here, we have to be a bit careful to make sure that R interprets our year variable as a categorical variable, since it is encoded as a number. For our purposes, the year should be thought of as a label, not a quantity.
+
+```{r, eval = FALSE}
+lm(hwy ~ dsipl + factor(year), data = mpg)
+```
 
 **7. Let's practice!**
 
@@ -52,11 +84,14 @@ The output from `lm()` is a model object, which when printed, will show the fitt
 
 ```{r}
 # Explore the data
-
+glimpse(mario_kart)
 
 # fit parallel slopes
-
+mod <- lm(totalPr ~ wheels + cond, data = mario_kart)
+mod
 ```
+
+On average, how much more does a new game cost compared to a used game?
 
 ## **Vizualizing parallel slopes models**
 
@@ -82,9 +117,21 @@ Thus, our model consists of two parallel lines: one for newer cars from 2008, an
 
 In order to visualize our model, we need to extract the necessary information about our model that was created by lm(). Conceptually, the three fitted coefficients will give us that information. However, it's easier in ggplot to simply plot the fitted values and connect them with a line. This process is streamlined by the augment() function from the broom package. Applying augment() to our model will return a data frame with the fitted values attached, like the one you see here. Note that the name for the variable that contains the fitted values is dot-fitted, and the name of the categorial variable is factor-dot-year-dot.
 
+```{r}
+library(broom)
+augment(mod)
+```
+
 **7. Parallel lines on the scatterplot**
 
 Finally, we can use the geom_line() function to put the two lines on the scatterplot that we created previously. We need to tell geom_line() to plot the fitted values, rather than the observed values, and those values only exist in the augmented model object that we created previously.
+
+```{r}
+data_space <- ggplot(data = mpg_manual, aes(x = displ, y = hwy, color = factor(year))) + 
+  geom_point()
+data_space + 
+  geom_line(data = augment(mod), aes(y = .fitted, color = factor(year)))
+```
 
 **8. Let's practice!**
 
@@ -113,17 +160,19 @@ Use `geom_line()` *once* to add two parallel lines corresponding to our model.
 
 ```{r}
 # Augment the model
-augmented_mod <- ___
-glimpse(___)
+augmented_mod <- augment(mod)
+glimpse(augmented_mod)
 
 # scatterplot, with color
-data_space <- ggplot(___, aes(x = ___, y = ___, color = ___)) + 
+data_space <- ggplot(data = augmented_mod, aes(x = wheels, y = totalPr, color = cond)) + 
   geom_point()
   
 # single call to geom_line()
 data_space + 
-  geom_line(aes(y = ___))
+  geom_line(aes(y = .fitted))
 ```
+
+Thinking geometrically is great way to get your head around how linear models work.
 
 ## **Interpreting parallel slopes coefficients**
 
@@ -132,6 +181,10 @@ data_space +
 **2. Intercept interpretation**
 
 Most often, our primary interest in models like this one is interpreting the value of the coefficients. What does the model tell us about the relationship between fuel economy and engine size in the context of the year when the cars were manufactured? Let's start with the main intercept. The value is 35.276 and the units are the same as those of the response variable---miles per gallon. Recall that this is the expected fuel economy for a car from 1999 that had an engine size of 0 liters. Of course, in this case, this value has little meaning, since there is no such thing as a car with an engine size of 0 liters, but that is the literal interpretation of the role that 35.276 plays in our model. As we saw above, the coefficient on year can also be thought of as an intercept. Note here that R has chosen to report the name of the coefficient as factor(year)2008. This reflects the fact that factor(year) was the name of the variable we gave R, and 2008 is the value of that variable that R is reporting about. This variable is identical to the newer variable that we defined in the previous set of slides. Here, R is telling us that cars manufactured in 2008 get about 1.4 miles per gallon better gas mileage than those manufactured in 1999, after controlling for engine size. This is our key finding, and I'll return to this in just a minute.
+
+```{r}
+lm(hwy ~ displ + factor(year), data = mpg)
+```
 
 **3. Slope interpretation**
 
@@ -188,7 +241,7 @@ The birthweight variable is recorded in the column `bwt`.
 
 ```{r}
 # build model
-
+lm(bwt ~ age + parity, data = babies)
 ```
 
 ### **Syntax from plot**
@@ -201,6 +254,6 @@ This time, we'd like to build a model for birthweight as a function of the lengt
 
 ```{r}
 # build model
-
+lm(bwt ~ gestation + smoke, data = babies)
 ```
 
