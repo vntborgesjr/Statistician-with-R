@@ -1,13 +1,22 @@
 ---
 title: "04 - Logistic Regression"
-output: html_notebook
+output: 
+  html_notebook:
+    toc: true
+    toc_float: false
+    toc_depth: 4
+    code_folding: hide
 ---
 
-```{r}
+```{r, echo = FALSE}
+library(broom)
 library(tidyverse)
+library(modelr)
+library(plotly)
 mpg <- ggplot2::mpg
 mpg_manual <- mpg %>% 
   filter(trans %in% c('manual(m5)', 'manual(m6)'))
+heartTr <- heart_transplant
 library(openintro)
 data(mariokart)
 mario_kart <- mariokart %>% 
@@ -15,6 +24,8 @@ mario_kart <- mariokart %>%
 rm(mariokart)
 colnames(mario_kart) <- c("ID", "duration", "nBids", "cond", "startPr", "shipPr", "totalPr", "shipSp", "sellerRate", "stockPhoto", "wheels", "title")
 SAT <- read.csv('/home/cla/Documentos/Vitor/DataCamp/Statistician-with-R//Datasets/SAT.csv')
+library(Stat2Data)
+data(MedGPA)
 ```
 
 ## **What is logistic regression?**
@@ -27,17 +38,41 @@ Thus far, we have only built models for a numeric response variable.
 
 A well-known Stanford University study on heart transplants tracked the five-year survival rate of patients with dire heart ailments. The purpose of the study was to assess the efficacy of heart transplants, but for right now we will simply focus on modeling the survival rates of these patients. This plot illustrates how those patients who were older when the study began were more likely to be dead when the study ended (five years later). Note that we have used the geom_jitter() function to create the illusion of separation in our data. Because the y value is categorical, all of the points would either lie exactly on "dead" or "alive", making the individual points hard to see. To counteract this, geom_jitter() will move the points a small random amount up or down. If you fit a regression line to these data, what would it look like?
 
+```{r}
+data_space1 <- ggplot(data = heartTr, aes(x = age, y = survived))
+
+data_space1 + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.5)
+```
+
 **3. Making a binary variable**
 
 First, we have a technical problem, in that the levels of our response variable are labels, and you can't build a regression model to a variable that consists of words! We can get around this by creating a new variable that is binary (either 0 or 1), based on whether the patient survived the study. We call this new variable is_alive.
+
+```{r}
+heartTr <- heartTr %>% mutate(is_alive = ifelse(survived == 'alive', 1, 0))
+```
 
 **4. Visualizing a binary response**
 
 We can then visualize our data_space. The vertical axis can now be thought of as the probability of being alive at the end of the study, given one's age at the beginning.
 
+```{r}
+data_space1 <- ggplot(data = heartTr, aes(x = age, y = is_alive)) + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.5)
+
+data_space1
+```
+
 **5. Regression with a binary response**
 
 Now there is nothing preventing us from fitting a simple linear regression model to these data, and in fact, in certain cases this may be an appropriate thing to do. But it's not hard to see that the line doesn't fit very well. There are other problems as well...
+
+```{r}
+data_space1 + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.5) + 
+  geom_smooth(method = 'lm', se = 0)
+```
 
 **6. Limitations of regression**
 
@@ -50,6 +85,10 @@ Thankfully, a modeling framework exists that generalizes regression to include r
 **8. Fitting a GLM**
 
 Fitting a GLM in R requires only two small changes from fitting a regression model using lm(). First, the function is called glm() instead of lm(). Second, we have to specify which kind of GLM we want using the family argument. For logistic regression, we specify the binomial() family, which uses the logit link function.
+
+```{r}
+glm(is_alive ~ age, data = heartTr, family = binomial)
+```
 
 **9. Let's practice!**
 
@@ -70,15 +109,16 @@ The medical school acceptance data is loaded in your workspace as `MedGPA`.
 
 ```{r}
 # scatterplot with jitter
-data_space <- ggplot(___) + 
-  geom_jitter(width = ___, height = ___, alpha = 0.5)
+data_space <- ggplot(data = MedGPA, aes(x = GPA, y = Acceptance)) + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.5)
 
 # linear regression line
 data_space + 
-  ___
+  geom_smooth(method = 'lm', se = 0)
 ```
 
-### **Fitting a line to a binary response (2)
+### **Fitting a line to a binary response (2)**
+
 In the previous exercise, we identified a major limitation to fitting a linear regression model when we have a binary response variable. However, it is not *always* inappropriate to do so. Note that our regression line only makes illogical predictions (i.e. $\hat{y} < 0$ or $\hat{y} > 1$) for students with very high or very low GPAs. For GPAs closer to average, the predictions seem fine.
 
 Moreover, the alternative logistic regression model — which we will fit next — is very similar to the linear regression model for observations near the average of the explanatory variable. It just so happens that the logistic curve is very straight near its middle. Thus, in these cases a linear regression model may still be acceptable, even for a binary response.
@@ -91,15 +131,16 @@ Moreover, the alternative logistic regression model — which we will fit next �
 
 ```{r}
 # filter
-MedGPA_middle <- ___
+MedGPA_middle <- MedGPA %>% 
+  filter(GPA >= 3.375 & GPA <= 3.77)
 
 # scatterplot with jitter
-data_space <- ggplot(___) + 
-  geom_jitter(width = ___, height = ___, alpha = 0.5)
+data_space <- ggplot(data = MedGPA_middle, aes(x = GPA, y = Acceptance)) + 
+  geom_jitter(width = 0, height = 0.05, alpha = 0.5)
 
 # linear regression line
 data_space + 
-  ___
+  geom_smooth(method = 'lm', se = 0)
 ```
 
 ### **Fitting a model**
@@ -120,7 +161,7 @@ where $\epsilon$ is the error term.
 
 ```{r}
 # fit model
-glm(___, data = ___, family = ___)
+glm(Acceptance ~ GPA, data = MedGPA, family = binomial)
 ```
 
 ## **Visualizing logistic regression**
@@ -131,13 +172,28 @@ glm(___, data = ___, family = ___)
 
 Let's return to our heart transplant data. In the data space, we can see the relationship between age and our binary response variable: whether the patient was alive when the study ended. Here again we've added some jitter and transparency to the points to make the individual observations easier to see.
 
+```{r}
+data_space1
+```
+
 **3. Regression**
 
 When we fit the simple linear regression line previously, we noted how the line was headed towards illogical predictions: the expected probability of a 70-year-old would be less than 0.
 
+```{r}
+data_space1 + 
+  geom_smooth(method = 'lm', se = FALSE)
+```
+
 **4. Using geom_smooth()**
 
 In constrast, notice how the logistic regression line is curved---most noticeably at the ends. The red logistic regression line will never reach 0 or 1, eliminating those invalid predicted probabilities. In this case, for most ages, the simple linear regression line and the logistic regression line don't differ by very much, and you might not lose much by using the simpler regression model. But for older people, the logistic model should perform much better. How can we visually assess how well the logistic model fits the data? Since the actual observations are all at 0 or 1, but our predictions are always between 0 and 1, we will always be off by some amount. In particular, our model predicts a 50% chance of survival for patients that are about 27 years old. Is that accurate?
+
+```{r}
+data_space1 + 
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_smooth(method = 'glm', se = FALSE, color = 'red', method.args = list(family = 'binomial'))
+```
 
 **5. Using bins**
 
@@ -146,6 +202,11 @@ One way to address this question is to separate the observations into bins based
 **6. Adding the model to the binned plot**
 
 To add our model to the plot, we'll employ the same technique that we used for the parallel slopes models. First, we use the augment() function from the broom package to compute the fitted values for our original observations based on our model. Note that we have set the type.predict argument to ensure that the fitted values are on the same scale as the response variable. Second, we use the geom_line() function to draw a blue line through these points. This blue line is the same as the one we drew previously using geom_smooth(). With the binned observations in red, we can now see how the blue logistic regression line fits "through" these binned points.
+
+```{r}
+data_space1 + 
+  geom_line(data = augment(glm(is_alive ~ age, data = heartTr, family = binomial), type.predict = 'response'), aes(y= .fitted), color = 'blue')
+```
 
 **7. Let's practice!**
 
@@ -165,12 +226,12 @@ However we also need to tell the `glm()` function which member of the GLM family
 
 ```{r}
 # scatterplot with jitter
-data_space <- ggplot(___) + 
-  geom_jitter(___, alpha = .5)
+data_space <- ggplot(data = MedGPA, aes(x = GPA, y = Acceptance)) + 
+  geom_jitter(width = 0, height = 0.05, alpha = .5)
 
 # add logistic curve
 data_space +
-  ___
+  geom_smooth(method = 'glm', se = 0, method.args = list(family = 'binomial'))
 ```
 
 ### **Using bins**
@@ -187,6 +248,15 @@ Here we are plotting $y$ as a function of $x$, where that function is
  $$y = \frac{exp(\hat{\beta_{0}} + \hat{\beta_{1}} . x)}{1 + exp(\hat{\beta_{0}} + \hat{\beta_{1}} . x)}.$$
 Note that the left hand side is the expected probability  $y$ of being accepted to medical school.
 
+```{r, echo = FALSE}
+mod <- glm(Acceptance ~ GPA, data = MedGPA, family = binomial)
+MedGPA_binned <- mod %>% 
+  augment(type.predict = 'response') %>% 
+  mutate(bin = cut(x = GPA, breaks = 6, labels = c('[2.72, 3.3]', '(3.3, 3.44]', '(3.44, 3.58]', '(3.58, 3.7]', '(3.7, 3.87]', '(3.87, 3.97]'))) %>% 
+  group_by(bin) %>% 
+  summarise(mean_GPA = mean(GPA), acceptance_rate = round(max(.fitted), 2))
+```
+
 **Instructions**
 
 - Create a scatterplot called `data_space` for `acceptance_rate` as a function of `mean_GPA` using the binned data in `MedGPA_binned`. Use `geom_line()` to connect the points.
@@ -195,14 +265,16 @@ Note that the left hand side is the expected probability  $y$ of being accepted 
 
 ```{r}
 # binned points and line
-data_space <- ___
+data_space <- ggplot(data = MedGPA_binned) +
+  geom_point(aes(y = acceptance_rate, x = mean_GPA)) + 
+  geom_line(aes(y = acceptance_rate, x = mean_GPA), color = 'blue')
 
 # augmented model
-MedGPA_plus <- ___
+MedGPA_plus <- augment(mod, type.predict = 'response')
 
 # logistic model on probability scale
 data_space +
-  geom_line(data = ___, aes(___), color = "red")
+  geom_line(data = MedGPA_plus, aes(y = .fitted, x = GPA), color = "red")
 ```
 
 ## **Three scales approach to interpretation**
@@ -213,17 +285,44 @@ data_space +
 
 For the Stanford heart transplant patients, we've observed how the probability of survival seems to decline with age. The notion of probability here is very intuitive: it's easy to understand what we mean when we say that the five-year survival rate is 75%. Here, we compute the fitted probabilities using the augment() function.
 
+```{r}
+mod1 <- glm(is_alive ~ age, data = heartTr, family = binomial)
+heartTr_plus <- mod1 %>% 
+  augment(type.predict = 'response') %>% 
+  mutate(y_hat = .fitted)
+```
+
 **3. Probability scale plot**
 
 Unfortunately, since our model is now non-linear, it's harder to succintly characterize how those probabilities decline. We can no longer say that "each additional year of age is associated with a particular change in the probability of surviving," because that change in probability is not constant across ages. Thus, while the probability scale is natural, it can be cumbersome to work with.
+
+```{r}
+ggplot(heartTr_plus, aes(x = age, y = y_hat)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous('Probability of being alive', limits = c(0, 1))
+```
 
 **4. Odds scale**
 
 To combat this, we can change the scale of the variable on the y-axis. Instead of thinking about the probability of survival, we can think about the odds. While these two concepts are often conflated, they are not the same. They are however, related by this simple formula. The odds of a binary event are the ratio of how often it happens, to how often it doesn't happen. Thus, if the probability of survival is 75%, then the odds of survival are 3:1, since you are three times more likely to survive than you are to die. Odds are commonly used to express uncertainty in a variety of contexts, most notably gambling.
 
+```{r}
+heartTr_plus <- heartTr_plus %>% 
+  mutate(odds_hat = y_hat / (1 - y_hat))
+
+```
+
 **5. Odds scale plot**
 
 If we change the y-scale to odds, then our model must change shape as well. In fact, our model now has the form of an exponential function. In this case, the odds of survival decrease exponentially as people age.
+
+```{r}
+ggplot(heartTr_plus, aes(x = age, y = odds_hat)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous('Odds of being alive')
+```
 
 **6. Log-odds scale**
 
@@ -233,6 +332,15 @@ While the odds scale is more useful than the probability scale for certain thing
 
 The benefit to this approach is clear: now the logistic regression model can be visualized as a line! Unfortunately, understanding what the log of the odds of an event means is very difficult for humans.
 
+```{r}
+heartTr_plus <- heartTr_plus %>% 
+  mutate(log_odds_hat = log(odds_hat))
+ggplot(heartTr_plus, aes(x = age, y = log_odds_hat)) +
+  geom_point() +
+  geom_line() +
+  scale_y_continuous('Log(odds) of being alaive')
+```
+
 **8. Comparison**
 
 So we've identified three different scales when working with logistic regression models. Each has its own strengths but also weaknesses, and so you really can't stick with one scale and ignore the others. The probability scale is the easiest to understand, but it makes the logistic function difficult to interpret. Conversely the logistic function becomes a line on the log-odds scale. This makes the function easy to interpret, but the log of the odds is hard to grapple with. The odds scale lies somewhere in between.
@@ -240,6 +348,10 @@ So we've identified three different scales when working with logistic regression
 **9. Odds ratios**
 
 Moreover, it is the odds scale that leads to the most common interpretation of the coefficients in a logistic regression model. As noted previously, interpreting the coefficients on the probability scale is hard because the model is non-linear, while interpreting them on the log-odds scale is hard because the scale is abstruse. However, on the odds scale we can form the ratio of the odds when the explanatory variable increases by one unit. This works out mathematically to be equal to the exponential of beta 1, the "slope" coefficient. Our interest is in how this number differs from 1. If it's greater than one, then the odds increase. Conversely, if it's less than one, then the odds decrease. In our case, our model suggests that each additional year of age is associated with a 6% decrease in the odds of survival. Keeping careful track of which scale you are working on will help you get these interpretations right.
+
+```{r}
+exp(coef(mod1))
+```
 
 **10. Let's practice!**
 
@@ -267,18 +379,24 @@ $\widehat{odds}$'s.
 
 ```{r}
 # compute odds for bins
-MedGPA_binned <- ___
+MedGPA_binned <- MedGPA_binned %>% 
+  mutate(odds = acceptance_rate/(1 - acceptance_rate))
 
 # plot binned odds
-data_space <- ___
+data_space <- ggplot(data = MedGPA_binned, aes(x = mean_GPA, y = odds)) +
+  geom_point(aes(x = mean_GPA, y = odds)) + 
+  geom_line(aes(x = mean_GPA, y = odds))
 
 # compute odds for observations
-MedGPA_plus <- ___
+MedGPA_plus <- MedGPA_plus %>% 
+  mutate(odds_hat = .fitted / (1 - .fitted))
 
 # logistic model on odds scale
-data_space +
-  geom_line(___, color = "red")
+data_space + 
+  geom_line(data = MedGPA_plus, aes(x = GPA, y = odds_hat), color = "red")
 ```
+
+Being able to move back and forth between different scales is essential to interpreting logistic regression models.
 
 ### **Log-odds scale**
 
@@ -307,18 +425,33 @@ $log$$\widehat{odds}$'s.
 
 ```{r}
 # compute log odds for bins
-MedGPA_binned <- ___
+MedGPA_binned <- MedGPA_binned %>% 
+  mutate(log_odds = log(acceptance_rate / (1 - acceptance_rate)))
 
 # plot binned log odds
-data_space <- ___
+data_space <- ggplot(data = MedGPA_binned, aes(x = mean_GPA, y = log_odds)) +
+  geom_point(aes(x = mean_GPA, y = log_odds)) +
+  geom_line(aes(x = mean_GPA, y = log_odds))
 
 # compute log odds for observations
-MedGPA_plus <- ___
+MedGPA_plus <- MedGPA_plus %>% 
+  mutate(log_odds_hat = log(.fitted / (1 - .fitted)))
 
 # logistic model on log odds scale
 data_space +
-  geom_line(___, color = "red")
+  geom_line(data = MedGPA_plus, aes(x = GPA, y = log_odds_hat), color = "red")
 ```
+
+```{r}
+predict(mod, data.frame(GPA = 2.9), type = 'response')
+predict(mod, data.frame(GPA = 2.9), type = 'response') / (1 - predict(mod, data.frame(GPA = 2.9), type = 'response'))
+
+predict(mod, data.frame(GPA = 3.9), type = 'response')
+predict(mod, data.frame(GPA = 3.9), type = 'response') / (1 - predict(mod, data.frame(GPA = 3.9), type = 'response'))
+log(predict(mod, data.frame(GPA = 3.9), type = 'response') / (1 - predict(mod, data.frame(GPA = 3.9), type = 'response')))
+```
+
+When you're on the log-odds scale, your model is a simple linear function.
 
 ## **Using a logistic regression model**
 
@@ -328,13 +461,31 @@ data_space +
 
 One important reason to build a model is to learn from the coefficients about the underlying random process. For example, in the Stanford heart transplant study, we were able to estimate the effect of age on the five-year survival rate. This simple model shed no light on the obvious purpose of the study, which was to determine whether those patients who received heart transplants were likely to live longer than the control group that received no transplant. By including the transplant variable in our model and exponentiating the coefficients, we see a huge effect. Patients who received a heart transplant saw their odds of survival improve by a factor of 6 point 2, even after controlling for age. Note that as expected, age still has a deleterious effect on mortality.
 
+```{r}
+mod1 <- glm(is_alive ~ age + transplant, data = heartTr, family = binomial)
+
+exp(coef(mod1))
+```
+
 **3. Using augment()**
 
 As we have seen, running the augment() function on the model object will return a data frame with---among other things---the fitted values. However, when we run this with the default options, the fitted values sure don't look like probabilities! These are the fitted values on the log-odds scale, which aren't terribly useful to us.
 
+```{r}
+#log-odds scale
+
+augment(mod1)
+```
+
 **4. Making probabilistic predictions**
 
 However, if we set the type.predict argument to "response", we retrieve the fitted values on the familiar probability scale. Of course, making predictions about the probability of survival for those patients who took part in the study is of somewhat limited value. We already know whether they survived! Aside from learning about the efficacy of the treatment, another common purpose for modeling is to make predictions for observations that are not part of our data set. These are called out-of-sample predictions.
+
+```{r}
+# probability scale
+
+augment(mod1, type.predict = 'response')
+```
 
 **5. Dick Cheney**
 
@@ -344,13 +495,33 @@ For example, former Vice President Dick Cheney famously received a heart transpl
 
 To compute this, we build a data frame with Cheney's data, and run it through our model using the newdata argument to augment(). The results suggest that Cheney had only a 6 point 8% chance of survival. Either Cheney is quite lucky to be alive, or---more likely---the survival rates of all heart transplant patients have improved considerably since the Stanford study was completed in 1973.
 
+```{r}
+cheney <- data.frame(age = 71, transplant = 'treatment')
+
+augment(mod1, newdata = cheney, type.predict = 'response', se_fit = TRUE)
+```
+
 **7. Making binary predictions**
 
 If our response variable is binary, then why are we making probabilistic predictions? Shouldn't we be able to make binary predictions? That is, instead of predicting the probability that a person survives for five years, shouldn't we be able to predict definitively whether they will live or die? There are a number of different ways in which we could reasonably convert our probabilistic fitted values into a binary decision. The simplest way would be to simply round the probabilities.
 
+```{r}
+mod1_plus <- augment(mod1, type.predict = 'response') %>% 
+  mutate(alive_hat= round(.fitted))
+
+mod1_plus %>% 
+  select(is_alive, age, transplant, .fitted, alive_hat)
+```
+
 **8. Confusion matrix**
 
 So how well did our model perform? One common way of assessing performance of models for a categorical response is via a confusion matrix. This simply cross-tabulates the reality with what our model predicted. In this case, our model predicted that 91 patients would die, and only 12 would live. Of those 91, 71 actually did die, while of the 12, 8 actually lived. Thus, our overall accuracy was 79 out of 103, or about 77%. Note that our model predicted only 12 patients would live, but more than twice as many patients actually survived. Our model's underprediction is probably a consequence of the low survival rate overall, coupled with our clumsy rounding scheme. One way to improve the accuracy of our binary predictions would be to experiment with looser rounding thresholds.
+
+```{r}
+mod1_plus %>% 
+  select(is_alive, alive_hat) %>% 
+  table()
+```
 
 **9. Let's practice!**
 
@@ -371,11 +542,13 @@ A logistic regression model object, `mod`, has been defined for you.
 
 ```{r}
 # create new data frame
-new_data <- ___
+new_data <- data.frame(GPA = 3.51)
 
 # make predictions
-
+augment(mod, type.predict = 'response', newdata = new_data)
 ```
+
+By framing your prediction as a probability you can show how likely it is that this student will get admitted to medical school.
 
 ### **Making binary predictions**
 
@@ -396,11 +569,13 @@ The model object `mod` is already in your worskpace.
 
 ```{r}
 # data frame with binary predictions
-tidy_mod <- ___
+tidy_mod <- mod %>% 
+  augment(type.predict = 'response') %>% 
+  mutate(Acceptance_hat = round(.fitted))
   
 # confusion matrix
 tidy_mod %>%
-  select(___, ___) %>% 
-  ___()
+  select(Acceptance, Acceptance_hat) %>% 
+  table()
 ```
 
