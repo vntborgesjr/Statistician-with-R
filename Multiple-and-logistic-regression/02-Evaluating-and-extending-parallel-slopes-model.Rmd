@@ -1,6 +1,11 @@
 ---
 title: "02 - Evaluating and extending parallel slopes model"
-output: html_notebook
+output: 
+  html_notebook:
+    toc: true
+    toc_float: false
+    toc_depth: 4
+    code_folding: hide
 ---
 
 ```{r}
